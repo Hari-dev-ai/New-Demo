@@ -251,7 +251,7 @@
 <h1>Health plans</h1>
 <h2>Enjoy the freedom to<br>live fearless.</h2>
 <p>We have a variety of plans to fit your needs and budget. Browse the brief descriptions to learn more about each plan. Select a plan to get a personalised quote, compare plans, and apply for coverage.</p>
-<a class="btn-hero" href="#" onclick="showSection('shop'); return false;">Click here</a>
+<a class="btn-hero" href="#plans" onclick="showSection('shop'); return false;">Click here</a>
 </div>
 <div class="hero-feature-icons">
 <div class="hfi hfi-1" title="Healthcare">🩺</div>
@@ -271,7 +271,7 @@
 <div id="section-shop" style="display:none;">
 <div class="plans-wrap">
 <div class="section-header reveal">
-<a href="#" class="home-btn" onclick="showSection('home'); return false;">🏠 &nbsp;Home</a>
+<a href="#home" class="home-btn" onclick="showSection('home'); return false;">🏠 &nbsp;Home</a>
 <div class="section-tag">Our Health Plans</div>
 <h2 class="section-title">Choose the Coverage That Fits Your Life</h2>
 <p class="section-sub">Transparent pricing · Zero hidden fees · Cancel anytime</p>
@@ -423,9 +423,20 @@
 </div>
  
 <script>
-  // ── Section Navigation ──
+  // ── Hash ↔ Section mapping ──
+  const HASH_MAP = {
+    home:      '#home',
+    shop:      '#plans',
+    myaccount: '#my-account'
+  };
+  const REVERSE_HASH = Object.fromEntries(
+    Object.entries(HASH_MAP).map(([k, v]) => [v, k])
+  );
+
+  // ── Section Navigation (updates URL hash) ──
   const SECTIONS = ['home','shop','myaccount'];
-  function showSection(name) {
+
+  function showSection(name, skipHash) {
     SECTIONS.forEach(s => {
       document.getElementById('section-'+s).style.display = (s === name) ? '' : 'none';
     });
@@ -441,10 +452,16 @@
         document.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
       }, 80);
     }
+    // Update URL hash without adding a history entry if skipHash is set
+    if (!skipHash) {
+      const hash = HASH_MAP[name] || '#home';
+      history.replaceState(null, '', hash);
+    }
   }
- 
-  // ── Cart ──
+
+  // ── Cart (updates URL hash when items are added) ──
   let cart = [];
+
   function addToCart(name, price, icon, tier, btn) {
     if (cart.find(i => i.name === name)) { showToast(name+' is already in your cart!'); return; }
     cart.push({name, price, icon, tier});
@@ -453,8 +470,29 @@
     btn.classList.add('added');
     setTimeout(() => { btn.innerHTML = '🛒 &nbsp;Add to Cart'; }, 2000);
     showToast(name+' added ✓');
+    // Reflect cart state in URL
+    updateCartHash();
   }
-  function removeFromCart(i) { cart.splice(i,1); updateCart(); }
+
+  function removeFromCart(i) {
+    cart.splice(i,1);
+    updateCart();
+    updateCartHash();
+  }
+
+  // Builds a URL hash that reflects the current plan + cart contents
+  // e.g. #plans?cart=basic,gold
+  function updateCartHash() {
+    const currentHash = window.location.hash.split('?')[0] || '#plans';
+    if (cart.length === 0) {
+      // Remove cart query from hash if cart is empty
+      history.replaceState(null, '', currentHash);
+    } else {
+      const tiers = cart.map(i => i.tier).join(',');
+      history.replaceState(null, '', currentHash + '?cart=' + tiers);
+    }
+  }
+
   function updateCart() {
     const n = cart.length;
     document.getElementById('cartCount').textContent = n;
@@ -480,15 +518,35 @@
       footer.style.display = '';
     }
   }
-  function openCart()  { document.getElementById('cartOverlay').classList.add('open'); document.getElementById('cartDrawer').classList.add('open'); document.body.style.overflow='hidden'; }
-  function closeCart() { document.getElementById('cartOverlay').classList.remove('open'); document.getElementById('cartDrawer').classList.remove('open'); document.body.style.overflow=''; }
+
+  function openCart() {
+    document.getElementById('cartOverlay').classList.add('open');
+    document.getElementById('cartDrawer').classList.add('open');
+    document.body.style.overflow='hidden';
+    // Reflect cart open state in URL
+    const base = window.location.hash.split('?')[0] || '#plans';
+    const cartParam = cart.length ? '?cart=' + cart.map(i=>i.tier).join(',') : '';
+    history.replaceState(null, '', base + cartParam + (cartParam ? '&drawer=open' : '?drawer=open'));
+  }
+
+  function closeCart() {
+    document.getElementById('cartOverlay').classList.remove('open');
+    document.getElementById('cartDrawer').classList.remove('open');
+    document.body.style.overflow='';
+    // Remove drawer param from URL
+    updateCartHash();
+  }
+
   function checkout() {
     if (!cart.length) return;
     const names = cart.map(i=>i.name).join(' + ');
     const total = cart.reduce((s,i)=>s+i.price,0);
     alert(`🎉 Thank you, Rajath!\n\nPlan(s): ${names}\nMonthly Total: ₹${total.toLocaleString('en-IN')}\n\nA CCare advisor will contact you shortly to complete enrollment.`);
     cart=[]; updateCart(); closeCart();
+    history.replaceState(null, '', '#home');
+    showSection('home', true);
   }
+
   function showToast(msg) {
     const t = document.createElement('div');
     t.textContent = msg;
@@ -496,6 +554,43 @@
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 2400);
   }
+
+  // ── Handle hash on page load & browser back/forward ──
+  function routeFromHash() {
+    const raw   = window.location.hash || '#home';
+    const base  = raw.split('?')[0];           // e.g. "#plans"
+    const query = raw.includes('?') ? raw.split('?')[1] : '';
+    const params = new URLSearchParams(query);
+
+    const section = REVERSE_HASH[base] || 'home';
+    showSection(section, true);                // skipHash=true so we don't re-write it
+
+    // Restore cart items from hash if present
+    const cartParam = params.get('cart');
+    if (cartParam) {
+      const PLAN_MAP = {
+        basic:    { name:'Basic Healthcare',    price:2499,  icon:'🌱', tier:'basic'    },
+        gold:     { name:'Gold Healthcare',     price:5999,  icon:'✦',  tier:'gold'     },
+        platinum: { name:'Platinum Healthcare', price:11499, icon:'💎', tier:'platinum' }
+      };
+      cart = [];
+      cartParam.split(',').forEach(tier => {
+        if (PLAN_MAP[tier] && !cart.find(i => i.tier === tier)) {
+          cart.push(PLAN_MAP[tier]);
+        }
+      });
+      updateCart();
+    }
+
+    // Re-open drawer if it was open
+    if (params.get('drawer') === 'open') {
+      setTimeout(openCart, 300);
+    }
+  }
+
+  window.addEventListener('hashchange', routeFromHash);
+  window.addEventListener('DOMContentLoaded', routeFromHash);
+
   // Scroll reveal
   const obs = new IntersectionObserver(entries => { entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); }); }, {threshold:0.1});
   document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
@@ -511,7 +606,7 @@
     ys = document.createElement('script'); ys.async = 1; ys.src = n; ys.charset = 'utf-8'; document.head.appendChild(ys);
   })(window, 'Genesys', 'https://apps.usw2.pure.cloud/genesys-bootstrap/genesys.min.js', {
     environment: 'prod-usw2',
-    deploymentId: 'ff171104-a6c4-472f-93ca-cc630ecd5e9b'
+    deploymentId: '672bb8d1-6d6d-4629-9837-6f416d9850cc'
   });
 </script>
  
