@@ -219,7 +219,7 @@
 </div>
 </div>
 <div class="topbar-right">
-<span class="user-name">Rajath Kumar</span>
+<span class="user-name">Hari</span>
 <button class="btn-logout">Log Out</button>
 <span class="phone-num">+1 314-301-8125</span>
 <select class="lang-sel">
@@ -354,7 +354,7 @@
 <div class="account-header">
 <div class="account-avatar">R</div>
 <div class="account-info">
-<h2>Rajath Kumar</h2>
+<h2>Hari</h2>
 <p>Member since January 2022 &nbsp;·&nbsp; Policy No: GC-2022-00847</p>
 </div>
 </div>
@@ -541,7 +541,7 @@
     if (!cart.length) return;
     const names = cart.map(i=>i.name).join(' + ');
     const total = cart.reduce((s,i)=>s+i.price,0);
-    alert(`🎉 Thank you, Rajath!\n\nPlan(s): ${names}\nMonthly Total: ₹${total.toLocaleString('en-IN')}\n\nA CCare advisor will contact you shortly to complete enrollment.`);
+    alert(`🎉 Thank you, Hari!\n\nPlan(s): ${names}\nMonthly Total: ₹${total.toLocaleString('en-IN')}\n\nA CCare advisor will contact you shortly to complete enrollment.`);
     cart=[]; updateCart(); closeCart();
     history.replaceState(null, '', '#home');
     showSection('home', true);
